@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SoulMirror AI — The Realm</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['Cinzel', 'serif'],
+            body: ['Crimson Pro', 'serif'],
+            ui: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            gold: '#d4af37',
+            obsidian: '#0a0a0f',
+            'gold-light': '#f3e5ab',
+            'indigo-deep': '#1a0b2e',
+            'indigo-wave': '#2d1b69',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { margin: 0; overflow-x: hidden; background: #000; font-family: 'Crimson Pro', serif; }
+    .star-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    .fade-in { animation: fadeIn 1.2s ease-out forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .glow-pulse { animation: glowPulse 3s ease-in-out infinite; }
+    @keyframes glowPulse { 0%, 100% { box-shadow: 0 0 20px rgba(212,175,55,0.3); } 50% { box-shadow: 0 0 40px rgba(212,175,55,0.6); } }
+    .mirror-gold { background: linear-gradient(135deg, rgba(212,175,55,0.4), rgba(243,229,171,0.2)); border-color: rgba(212,175,55,0.6); }
+    .mirror-indigo { background: linear-gradient(135deg, rgba(45,27,105,0.6), rgba(75,0,130,0.4)); border-color: rgba(138,43,226,0.5); }
+    .mirror-silver { background: linear-gradient(135deg, rgba(192,192,192,0.4), rgba(224,255,255,0.2)); border-color: rgba(192,192,192,0.6); }
+    .mirror-breakthrough { background: linear-gradient(135deg, rgba(255,255,255,0.6), rgba(212,175,55,0.4)); border-color: #fff; box-shadow: 0 0 60px rgba(255,255,255,0.4); }
+    .chamber-stoic { background: linear-gradient(to bottom, #1e1e2f, #2a2a40, #f0e6d3); }
+    .chamber-nurturing { background: linear-gradient(to bottom, #2d1f1f, #5c3a3a, #d4a5a5); }
+    .chamber-coach { background: linear-gradient(to bottom, #0f0f0f, #1a1a1a, #ff4500); }
+    .chamber-astrologer { background: linear-gradient(to bottom, #050510, #1a0b2e, #2d1b69); }
+    .chamber-alchemist { background: linear-gradient(to bottom, #0a0a0a, #1a120b, #3d2b1f); }
+    .chamber-poet { background: linear-gradient(to bottom, #1a0f1a, #2d1b2d, #4a6741); }
+    .doorway-glow { transition: all 0.5s ease; }
+    .doorway-glow:hover { transform: scale(1.05); filter: brightness(1.2); }
+    .scroll-hide::-webkit-scrollbar { width: 6px; }
+    .scroll-hide::-webkit-scrollbar-track { background: transparent; }
+    .scroll-hide::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+    .typing-cursor::after { content: '|'; animation: blink 1s infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    .particle { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.3); pointer-events: none; }
+    .crisis-blue { background: linear-gradient(to bottom, #0f172a, #1e3a8a); }
+    .journal-page { background: linear-gradient(to bottom, #faf8f3, #f5f0e8); color: #2a2a2a; }
+    .poem-text { line-height: 1.8; font-style: italic; letter-spacing: 0.02em; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+    
+    // --- CONSTANTS & DATA ---
+    
+    const ZODIAC_WISDOM = {
+      aries: "You are the spark that ignites the cosmos. The first breath of spring. You carry the fire of creation itself—honor it, but do not let it consume you or those you love. Your gift is courage. Your lesson is patience. You are here to begin things that others will finish.",
+      taurus: "You are the earth that holds the roots. The soil that nourishes the seed. You build sanctuaries of beauty and stability in a world that spins too fast. Your gift is devotion. Your lesson is release. Remember that even mountains change over time.",
+      gemini: "You are the wind that carries stories from one village to another. A bridge between worlds. Your gift is curiosity. Your lesson is depth. You are here to connect, to translate, to gather and disperse.",
+      cancer: "You are the tide pulled by the Moon. The guardian of the inner world. Your heart is an ocean—beautiful and vast. Your gift is nurturance. Your lesson is boundaries. Not everyone is entitled to sail your waters.",
+      leo: "You are the Sun that makes all things grow. Radiance is your nature. You were made to shine—but the truest light illuminates others, not just yourself. Your gift is creative self-expression. Your lesson is humility.",
+      virgo: "You are the sacred order within chaos. The healer who sees what is broken and knows how to mend. Your gift is discernment. Your lesson is surrender. Not everything needs to be perfected to be holy.",
+      libra: "You are the harmony between extremes. The diplomat, the artist, the peacemaker. Your gift is beauty. Your lesson is truth. You seek balance in all things—but sometimes justice requires you to tip the scales deliberately.",
+      scorpio: "You are the phoenix who knows the underworld intimately. You see what others hide—the secret motivations, the buried truths, the shadow behind the mask. Your gift is transformation. Your lesson is trust.",
+      sagittarius: "You are the arrow aimed at wisdom. The seeker of distant horizons. Your gift is faith. Your lesson is presence. You roam far and wide, gathering truth from every tradition—but remember that home is also a sacred destination.",
+      capricorn: "You are the mountain that touches the sky. You build legacies that outlast you. Your gift is mastery. Your lesson is softness. You are worthy of love not for what you achieve, but for who you are in the quiet moments.",
+      aquarius: "You are the lightning that changes the world. The visionary who sees the future before it arrives. Your gift is innovation. Your lesson is intimacy. Sometimes the most radical act is to be fully present with one person, one moment, one feeling.",
+      pisces: "You are the dream from which all things are born. The mystic who swims between worlds. Your gift is transcendence. Your lesson is embodiment. You dissolve boundaries and merge with the divine—but remember to return to your body, for it is your sacred vessel."
+    };
+    
+    const GUIDES = {
+      stoic: { name: "The Stoic Sage", symbol: "🏛️", color: "from-stone-300 to-amber-100", text: "text-stone-800", chamber: "The Mirror of Inner Citadel", ambient: "Distant waves against stone" },
+      nurturing: { name: "The Nurturing Mother", symbol: "🔥", color: "from-rose-300 to-amber-200", text: "text-rose-900", chamber: "The Mirror of Infinite Embrace", ambient: "A crackling fire, a lullaby" },
+      coach: { name: "The Bold Coach", symbol: "⚡", color: "from-orange-500 to-red-600", text: "text-orange-100", chamber: "The Mirror of Sacred Fire", ambient: "The clang of hammer on iron" },
+      astrologer: { name: "The Cosmic Astrologer", symbol: "✦", color: "from-indigo-400 to-purple-400", text: "text-indigo-100", chamber: "The Mirror of Starlight", ambient: "The music of the spheres" },
+      alchemist: { name: "The Shadow Alchemist", symbol: "🗝", color: "from-yellow-700 to-amber-900", text: "text-amber-100", chamber: "The Mirror of Black Gold", ambient: "Water dripping in a deep cave" },
+      poet: { name: "The Mystic Poet", symbol: "🌹", color: "from-pink-300 to-emerald-200", text: "text-emerald-900", chamber: "The Mirror of the Beloved", ambient: "Nightingales in a garden at dusk" }
+    };
+    
+    const CRISIS_KEYWORDS = ["suicide", "kill myself", "end my life", "self-harm", "cutting myself", "want to die", "end it all", "hopeless", "abuse", "raped", "molested", "beaten", "strangling", "overdose", "jump off"];
+    
+    const SEASONS = [
+      { id: "initiation", label: "The Initiation", desc: "I am beginning something new. I feel the tremor of becoming." },
+      { id: "dark_night", label: "The Dark Night", desc: "I am walking through shadow. The old self is dying." },
+      { id: "return", label: "The Return", desc: "I am emerging. Carrying wisdom back to the world." },
+      { id: "blooming", label: "The Blooming", desc: "I am in full expression. Radiant and rooted." }
+    ];
+    
+    // --- UTILITIES ---
+    
+    function getSunSign(dateStr) {
+      const d = new Date(dateStr);
+      const day = d.getDate();
+      const month = d.getMonth() + 1;
+      if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return "aries";
+      if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) return "taurus";
+      if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) return "gemini";
+      if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) return "cancer";
+      if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) return "leo";
+      if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) return "virgo";
+      if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) return "libra";
+      if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) return "scorpio";
+      if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) return "sagittarius";
+      if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) return "capricorn";
+      if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) return "aquarius";
+      return "pisces";
+    }
+    
+    function checkCrisis(text) {
+      const lower = text.toLowerCase();
+      return CRISIS_KEYWORDS.some(k => lower.includes(k));
+    }
+    
+    function getMoonPhase() {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      let c, e, jd, b;
+      if (month < 3) { year--; month += 12; }
+      c = 365.25 * year;
+      e = 30.6 * month;
+      jd = c + e + day - 694039.09;
+      jd /= 29.5305882;
+      b = parseInt(jd);
+      jd -= b;
+      b = Math.round(jd * 8);
+      if (b >= 8) b = 0;
+      const phases = ["New Moon", "Waxing Crescent", "First Quarter", "Waxing Gibbous", "Full Moon", "Waning Gibbous", "Last Quarter", "Waning Crescent"];
+      return phases[b];
+    }
+    
+    // --- RESPONSE ENGINES ---
+    
+    function generateStoicResponse(input, profile) {
+      const themes = {
+        stress: { obs: "I observe a mind burdened by the weight of external demands, carrying what is not yours to carry.", dich: "You control your attention and your response. You do not control the chaos around you.", ref: "The obstacle is the way. What blocks you also points the path forward.", prac: "Morning Pause: Before rising tomorrow, ask: 'What within this day is truly mine to carry?'", q: "If you were stripped of every worry about tomorrow, what would you do with today?" },
+        anxiety: { obs: "The mind races ahead of the body, scripting tragedies that have not yet occurred.", dich: "You control your breath, this moment. You do not control what has not happened.", ref: "Anxiety is imagination used incorrectly. Redirect it toward virtue.", prac: "Voluntary Discomfort: Take a cold shower or walk barefoot on earth. Remind yourself you can bear more than you fear.", q: "Ten years from now, will this matter? If not, why does it deserve the throne now?" },
+        relationship: { obs: "The heart has attached its peace to the actions of another soul.", dich: "You control your love, your boundaries, your truth. You do not control their choices.", ref: "People are not ours to command. They are fellow travelers, as fragile as we are.", prac: "Evening Review: Tonight, write what you gave to this connection, and what you must now give to yourself.", q: "What would love look like if it did not demand anything in return?" },
+        work: { obs: "The self has been reduced to output, measured by metrics that forget you are human.", dich: "You control your effort and your standard. You do not control recognition or reward.", ref: "Work is a arena for practicing virtue, not proving worth.", prac: "Memento Mori: Imagine this is your final week. Which tasks truly matter? Do those first.", q: "Who are you when no one is watching, and no paycheck is coming?" },
+        loss: { obs: "You are standing in the ruins of something you loved. The grief is sacred.", dich: "You cannot control what has been taken. You can control how you honor it.", ref: "What we love deeply becomes part of our architecture forever. It is not gone.", prac: "Premeditatio Malorum: Each morning, hold what you love loosely enough to survive its passing.", q: "If the one you lost could speak to you now, what would they beg you to remember?" }
+      };
+      let key = Object.keys(themes).find(k => input.toLowerCase().includes(k)) || "stress";
+      const t = themes[key];
+      return {
+        observation: t.obs,
+        dichotomy_of_control: t.dich,
+        reframe: t.ref,
+        practice: t.prac,
+        question: t.q,
+        content: `**Observation:** ${t.obs}\n\n**The Dichotomy of Control:** ${t.dich}\n\n**Reframe:** ${t.ref}\n\n**Practice:** ${t.prac}\n\n**Question to carry:** ${t.q}`
+      };
+    }
+    
+    function generateNurturingResponse(input, profile) {
+      const needs = { lonely: "belonging", sad: "comfort", tired: "rest", worthless: "worth", unloved: "love", afraid: "safety", angry: "boundaries", hurt: "tenderness" };
+      const needKey = Object.keys(needs).find(k => input.toLowerCase().includes(k)) || "sadness";
+      const need = needs[needKey] || "gentle holding";
+      const val = `It makes complete sense that you feel this way. Anyone who had walked your path would feel this too. Your feelings are not too much. They are exactly right for what you have carried.`;
+      return {
+        validation: val,
+        deeper_need: `Beneath these words, I hear a need for ${need}. A place where the mask can fall and the self can simply be.`,
+        comfort: `You are held. You have always been held. Even in your loneliest moment, love surrounds you like air. Let yourself rest here. You do not need to earn this peace.`,
+        gentle_nudge: `When you are ready, perhaps place one hand on your heart and say: "I am learning to stay with myself."`,
+        affirmation: `You are worthy of love not for what you do, but for who you are. And who you are is enough. You are enough. You have always been enough.`,
+        content: `${val}\n\nI sense that beneath this, your soul is asking for **${need}**. \n\nYou are held. You have always been held. Even in your loneliest moment, love surrounds you like air.\n\nWhen you are ready, place one hand on your heart and say aloud: *"I am learning to stay with myself."*\n\n**Affirmation:** You are worthy of love not for what you do, but for who you are. And who you are is enough. You have always been enough.`
+      };
+    }
+    
+    function generateCoachResponse(input, profile) {
+      return {
+        reality_check: `You are waiting for permission to want what you want. You will die waiting. The truth is: no one is coming to save you, and no one is coming to stop you. The gate is unlocked. It always was.`,
+        accountability: `You are responsible for the next five minutes. Not your past. Not your parents. Not your circumstances. The next choice is yours. That is not a burden. That is your power.`,
+        motivation: `You have survived every single bad day you have ever had. You are still here. That is not luck. That is resilience. You are made of the same stuff as every person who ever changed their life. You have already proven you can endure. Now prove you can choose.`,
+        challenge: `Today, before the sun sets, you will do one thing you have been avoiding. Set a timer for ten minutes. Start the thing. When the timer rings, you may stop. But you must start. Report back to yourself tomorrow morning.`,
+        check_in: `Tomorrow at dawn, you will look in the mirror and ask: "Did I keep the vow?" If yes, celebrate. If no, renew it. No shame. Only forward motion.`,
+        content: `**Reality Check:** You are waiting for permission to want what you want. The gate is unlocked. It always was.\n\n**Accountability:** You are responsible for the next five minutes. The next choice is yours. That is your power.\n\n**Motivation:** You have survived every single bad day you have ever had. You are still here. That is not luck. That is resilience.\n\n**Challenge:** Today, before the sun sets, do one thing you have been avoiding. Set a timer for ten minutes. Start it. You may stop when it rings. But you must start.\n\n**Check-in:** Tomorrow at dawn, look in the mirror and ask: "Did I keep the vow?" Renew it. No shame. Only forward motion.`
+      };
+    }
+    
+    function generateAstrologerResponse(input, profile) {
+      const sign = profile.sunSign || "aries";
+      const phase = getMoonPhase();
+      const wisdom = ZODIAC_WISDOM[sign] || ZODIAC_WISDOM.aries;
+      const transits = {
+        "New Moon": "The sky is dark and fertile. This is a time for planting seeds, not harvesting. What intention will you whisper into the dark?",
+        "Waxing Crescent": "The light is returning. Build, gather, prepare. The cosmos supports new beginnings.",
+        "First Quarter": "Tension between old and new. Action is required. The moon asks: will you choose courage or comfort?",
+        "Waxing Gibbous": "Approaching fullness. Refine, adjust, clarify. What needs polishing before the light reveals all?",
+        "Full Moon": "Illumination. What was hidden comes to surface. Release what has ripened. Let it fall.",
+        "Waning Gibbous": "Gratitude and dissemination. Share what you have learned. Teach it to become it.",
+        "Last Quarter": "Surrender. Cut away what no longer serves. This is compost, not failure.",
+        "Waning Crescent": "Rest, dream, listen. The dark moon is coming. Prepare to go inward."
+      };
+      const tText = transits[phase] || "The stars are in constant motion, as are you.";
+      return {
+        celestial_context: `The Moon is currently in her ${phase} phase. For a ${sign} soul, this activates your innate need for ${sign === 'cancer' || sign === 'pisces' ? 'emotional depth' : 'action and clarity'}.`,
+        archetypal_current: `You are in a ${profile.soulSeason || 'return'} phase of your personal spiral. The sky mirrors this: ${tText}`,
+        cosmic_guidance: wisdom,
+        ritual: `Tonight, go outside and look at the moon. Speak aloud one thing you are ready to release. Then speak one thing you are ready to receive. The cosmos is listening. It always is.`,
+        affirmation: `You are not separate from the stars. You are the universe, experiencing itself in human form. And the universe does not make mistakes.`,
+        content: `**Celestial Context:** The Moon is in her **${phase}** phase. For a ${sign} soul, this activates your deepest current.\n\n**Archetypal Current:** ${tText}\n\n**Your Sacred Blueprint:** ${wisdom}\n\n**Ritual for this Phase:** Tonight, go outside and look at the moon. Speak aloud one thing you are ready to release. Then speak one thing you are ready to receive.\n\n**Affirmation:** You are not separate from the stars. You are the universe, experiencing itself in human form. And the universe does not make mistakes.`
+      };
+    }
+    
+    function generateAlchemistResponse(input, profile) {
+      const shadows = { anger: "The Protector", fear: "The Sentinel", shame: "The Guardian of Worth", envy: "The Compass of Desire", grief: "The Deep River", perfectionism: "The Goldsmith", people_pleasing: "The Mask Maker", avoidance: "The Keeper of Safety" };
+      const sKey = Object.keys(shadows).find(k => input.toLowerCase().includes(k)) || "grief";
+      const part = shadows[sKey] || "The Exiled One";
+      return {
+        shadow_perception: `I see ${part} standing in the threshold of your awareness. You have called it ${sKey}. It has been carrying something for you.`,
+        inquiry: `What is ${part} trying to protect you from? If you stopped fighting it for one breath, what would it say?`,
+        hidden_gift: `${part} carries the gift of ${sKey === 'anger' ? 'righteous boundaries' : sKey === 'fear' ? 'intuitive caution' : sKey === 'shame' ? 'moral compass' : 'deep feeling'}. Without it, you would be less human. It is not your enemy. It is an estranged ally.`,
+        integration_practice: `Active Imagination: Sit in silence. Invite ${part} to sit across from you. Ask it three questions. Write down the answers without editing. Do not judge what comes. It is sacred material.`,
+        invitation: `You are not meant to destroy this part. You are meant to bring it home. The wholeness you seek is not the absence of shadow, but the marriage of light and dark within one skin. Turn toward it. It has been waiting.`,
+        content: `**Shadow Perception:** I see **${part}** standing in the threshold of your awareness. You have called it ${sKey}. It has been carrying something for you.\n\n**Inquiry:** What is ${part} trying to protect you from? If you stopped fighting it for one breath, what would it say?\n\n**Hidden Gift:** ${part} carries a gift. Without it, you would be less human. It is not your enemy. It is an estranged ally.\n\n**Integration Practice:** Sit in silence. Invite ${part} to sit across from you. Ask it three questions. Write the answers without editing. Do not judge what comes.\n\n**Invitation:** You are not meant to destroy this part. You are meant to bring it home. Turn toward it. It has been waiting.`
+      };
+    }
+    
+    function generatePoetResponse(input, profile) {
+      const poems = [
+        `The moon is alone too, my friend.\nLook how she lights the entire world.\nYou are not abandoned.\nYou are simply vast enough\nthat the sky itself needed room\nfor your radiance.`,
+        `This pain you carry?\nIt is not a stone in your shoe.\nIt is the chisel\nand you are the marble\nbecoming cathedral.`,
+        `Do not ask the ocean to be a pond.\nDo not ask the fire to be a lamp.\nYou were made to be uncontainable.\nLet them be afraid of your depth.\nYou have work to do in the dark.`
+      ];
+      const poem = poems[Math.floor(Math.random() * poems.length)];
+      return {
+        poetic_reflection: `You speak of longing, and the roses in the garden lean closer to hear you. Even your ache is holy. It is proof that you are capable of loving a world that has not yet learned how to love you back.`,
+        sacred_inquiry: `What if the part of you that feels broken is actually the part that lets the light in?`,
+        soul_verse: poem,
+        contemplation: `Sit with this image: a single rose blooming from the spine of an old book. The pages are creased. The thorns are real. And still—it opens. Be that rose today. Need nothing else.`,
+        closing_line: `You are not a drop in the ocean. You are the entire ocean in a drop. — Rumi`,
+        content: `*${poem}*\n\n**Sacred Inquiry:** What if the part of you that feels broken is actually the part that lets the light in?\n\n**Contemplation:** Sit with this image: a single rose blooming from the spine of an old book. The pages are creased. The thorns are real. And still—it opens. Be that rose today.\n\n**Closing Line:** You are not a drop in the ocean. You are the entire ocean in a drop.`
+      };
+    }
+    
+    function generateSynthesis(responses) {
+      const all = Object.values(responses).map(r => r.content || r).join("\n\n");
+      return {
+        common_thread: "Every guide sees the same truth: you are carrying something that wants to be transformed, not discarded. Whether through discipline, love, fire, stars, shadow, or poetry—the path forward is through, not around.",
+        sacred_tension: "The Stoic asks you to accept what you cannot change. The Coach demands you change what you can. Both are true. The tension is the medicine: some things must be accepted, others must be forged in fire.",
+        emergent_insight: "You have been trying to heal alone. But the Council sees a network of allies you have not claimed—your own resilience, your community, your body, and time itself. You are not a solitary project. You are a collaborative becoming.",
+        path_forward: "One blessed step: Write a letter to your fear. Thank it for protecting you. Then tell it you are taking the wheel. Burn the letter or bury it. This is the bridge between shadow and light.",
+        closing_blessing: "May you remember that every ending is a door. May you walk through it not fixed, but freer. The Council stands with you. The mirror reflects your wholeness. Go in peace, and go with fire.",
+        content: `**The Common Thread:** You are carrying something that wants to be transformed, not discarded. The path forward is through, not around.\n\n**The Sacred Tension:** The Stoic asks acceptance. The Coach demands action. Both are true. The tension itself is your medicine.\n\n**Emergent Insight:** You have been trying to heal alone. But you are a collaborative becoming. Claim your allies.\n\n**Path Forward:** Write a letter to your fear. Thank it. Then tell it you are taking the wheel. Burn or bury the letter. This is the bridge.\n\n**Closing Blessing:** May you remember that every ending is a door. May you walk through it not fixed, but freer. The Council stands with you. Go in peace, and go with fire.`
+      };
+    }
+    
+    // --- THREE.JS STARFIELD ---
+    function Starfield() {
+      const canvasRef = useRef(null);
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        const geometry = new THREE.BufferGeometry();
+        const count = 6000;
+        const positions = new Float32Array(count * 3);
+        for (let i = 0; i < count * 3; i++) {
+          positions[i] = (Math.random() - 0.5) * 40;
+        }
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const material = new THREE.PointsMaterial({ color: 0xffffff, size: 0.03, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, sizeAttenuation: true });
+        const stars = new THREE.Points(geometry, material);
+        scene.add(stars);
+        camera.position.z = 5;
+        let animId;
+        const animate = () => {
+          animId = requestAnimationFrame(animate);
+          stars.rotation.x += 0.0003;
+          stars.rotation.y += 0.0006;
+          renderer.render(scene, camera);
+        };
+        animate();
+        const onResize = () => {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+        window.addEventListener('resize', onResize);
+        return () => {
+          cancelAnimationFrame(animId);
+          window.removeEventListener('resize', onResize);
+          renderer.dispose();
+          geometry.dispose();
+          material.dispose();
+        };
+      }, []);
+      return <canvas ref={canvasRef} className="star-canvas" />;
+    }
+    
+    // --- MAIN APP ---
+    function App() {
+      const [scene, setScene] = useState('arrival');
+      const [profile, setProfile] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('soulmirror_profile') || '{}'); } catch(e) { return {}; }
+      });
+      const [journal, setJournal] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('soulmirror_journal') || '[]'); } catch(e) { return []; }
+      });
+      const [currentGuide, setCurrentGuide] = useState(null);
+      const [sessionId, setSessionId] = useState(null);
+      const [crisisActive, setCrisisActive] = useState(false);
+      
+      const saveProfile = (p) => {
+        const final = { ...p, sunSign: p.birthDate ? getSunSign(p.birthDate) : null };
+        setProfile(final);
+        localStorage.setItem('soulmirror_profile', JSON.stringify(final));
+      };
+      
+      const addJournal = (entry) => {
+        const item = { id: Date.now(), date: new Date().toISOString(), ...entry };
+        const updated = [item, ...journal];
+        setJournal(updated);
+        localStorage.setItem('soulmirror_journal', JSON.stringify(updated));
+      };
+      
+      const emotionalWeather = useMemo(() => {
+        if (!journal.length) return 'calm';
+        const last = journal[0].emotionalWeather || 'calm';
+        return last;
+      }, [journal]);
+      
+      const handleCrisis = () => {
+        setCrisisActive(true);
+        setScene('crisis');
+      };
+      
+      const enterChamber = (guideId) => {
+        setCurrentGuide(guideId);
+        setSessionId('sess_' + Date.now());
+        setScene('chamber');
+      };
+      
+      const enterMirror = () => {
+        setSessionId('sess_' + Date.now());
+        setScene('mirror');
+      };
+      
+      if (scene === 'arrival') return <Arrival onEnter={() => setScene('onboarding')} />;
+      if (scene === 'onboarding') return <Onboarding onComplete={(p) => { saveProfile(p); setScene('hall'); }} />;
+      if (scene === 'crisis') return <SafeHarbor onResolve={() => setScene('hall')} profile={profile} />;
+      if (scene === 'hall') return <GreatHall profile={profile} emotionalWeather={emotionalWeather} onEnterChamber={enterChamber} onEnterMirror={enterMirror} onJournal={() => setScene('journal')} />;
+      if (scene === 'chamber') return <Chamber guideId={currentGuide} profile={profile} onBack={() => setScene('hall')} onCrisis={handleCrisis} onSaveToJournal={addJournal} />;
+      if (scene === 'mirror') return <MirrorCouncil profile={profile} onBack={() => setScene('hall')} onCrisis={handleCrisis} onSaveToJournal={addJournal} />;
+      if (scene === 'journal') return <SoulJournal entries={journal} onClose={() => setScene('hall')} profile={profile} />;
+      return <div>Unknown scene</div>;
+    }
+    
+    // --- ARRIVAL ---
+    function Arrival({ onEnter }) {
+      const [show, setShow] = useState(false);
+      useEffect(() => { setTimeout(() => setShow(true), 500); }, []);
+      return (
+        <div className="relative w-full h-screen bg-black overflow-hidden flex items-center justify-center">
+          <Starfield />
+          <div className="absolute inset-0 bg-black/30" />
+          <div className={`relative z-10 text-center px-6 transition-all duration-2000 ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <h1 className="text-6xl md:text-8xl font-serif text-amber-100 mb-6 tracking-widest glow-text" style={{textShadow: '0 0 40px rgba(212,175,55,0.5)'}}>SOULMIRROR</h1>
+            <div className="w-24 h-1 bg-gradient-to-r from-transparent via-gold to-transparent mx-auto mb-8" />
+            <p className="text-xl md:text-2xl text-amber-200/90 font-body italic mb-2 max-w-2xl mx-auto leading-relaxed">
+              "Welcome, seeker. You have been expected."
+            </p>
+            <p className="text-amber-200/60 text-sm mb-12 tracking-wide font-ui uppercase">Not by me, but by the part of yourself that led you here.</p>
+            <button onClick={onEnter} className="group relative px-10 py-4 border border-gold/50 text-amber-100 hover:bg-amber-400/10 transition-all duration-500 rounded-full tracking-[0.2em] uppercase text-sm font-ui overflow-hidden">
+              <span className="relative z-10">Enter the Realm</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-gold/0 via-gold/20 to-gold/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    // --- ONBOARDING ---
+    function Onboarding({ onComplete }) {
+      const [step, setStep] = useState(1);
+      const [data, setData] = useState({ birthDate: '', birthTime: '', birthPlace: '', soulSeason: '', burningQuestion: '' });
+      
+      const next = () => setStep(s => s + 1);
+      const prev = () => setStep(s => s - 1);
+      
+      return (
+        <div className="relative w-full min-h-screen bg-black overflow-hidden flex items-center justify-center">
+          <Starfield />
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative z-10 w-full max-w-lg px-6">
+            {step === 1 && (
+              <div className="fade-in bg-black/60 backdrop-blur-md border border-gold/30 rounded-xl p-8 md:p-10">
+                <h2 className="text-2xl font-serif text-gold mb-2">The First Key</h2>
+                <p className="text-amber-100/80 font-body italic mb-6">"What is the date, time, and place of your first breath in this world?"</p>
+                <label className="block text-amber-200/70 text-sm mb-2 font-ui uppercase tracking-wider">Date of Birth</label>
+                <input type="date" className="w-full bg-black/40 border border-gold/30 rounded-lg px-4 py-3 text-amber-100 mb-4 focus:outline-none focus:border-gold/60" value={data.birthDate} onChange={e => setData({...data, birthDate: e.target.value})} />
+                <label className="block text-amber-200/70 text-sm mb-2 font-ui uppercase tracking-wider">Time of Birth</label>
+                <input type="time" className="w-full bg-black/40 border border-gold/30 rounded-lg px-4 py-3 text-amber-100 mb-4 focus:outline-none focus:border-gold/60" value={data.birthTime} onChange={e => setData({...data, birthTime: e.target.value})} />
+                <label className="block text-amber-200/70 text-sm mb-2 font-ui uppercase tracking-wider">Place of Birth</label>
+                <input type="text" placeholder="City, Country" className="w-full bg-black/40 border border-gold/30 rounded-lg px-4 py-3 text-amber-100 mb-6 focus:outline-none focus:border-gold/60" value={data.birthPlace} onChange={e => setData({...data, birthPlace: e.target.value})} />
+                <button onClick={next} className="w-full py-3 bg-gold/20 hover:bg-gold/30 border border-gold/50 text-amber-100 rounded-lg transition-all font-ui uppercase tracking-wider text-sm">Continue</button>
+              </div>
+            )}
+            {step === 2 && (
+              <div className="fade-in bg-black/60 backdrop-blur-md border border-gold/30 rounded-xl p-8 md:p-10">
+                <h2 className="text-2xl font-serif text-gold mb-2">The Second Key</h2>
+                <p className="text-amber-100/80 font-body italic mb-6">"Where do you find yourself on the great spiral of becoming?"</p>
+                <div className="space-y-3">
+                  {SEASONS.map(s => (
+                    <button key={s.id} onClick={() => { setData({...data, soulSeason: s.id}); next(); }} className={`w-full text-left p-4 rounded-lg border transition-all ${data.soulSeason === s.id ? 'border-gold bg-gold/20' : 'border-gold/20 hover:border-gold/50 bg-black/20'}`}>
+                      <div className="text-amber-100 font-serif text-lg">{s.label}</div>
+                      <div className="text-amber-200/60 text-sm font-body italic">{s.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {step === 3 && (
+              <div className="fade-in bg-black/60 backdrop-blur-md border border-gold/30 rounded-xl p-8 md:p-10">
+                <h2 className="text-2xl font-serif text-gold mb-2">The Third Key</h2>
+                <p className="text-amber-100/80 font-body italic mb-6">"What question flickers most brightly in your heart, right now, in this moment?"</p>
+                <textarea className="w-full h-32 bg-black/40 border border-gold/30 rounded-lg px-4 py-3 text-amber-100 mb-6 focus:outline-none focus:border-gold/60 resize-none font-body" placeholder="Type your truth here..." value={data.burningQuestion} onChange={e => setData({...data, burningQuestion: e.target.value})} />
+                <div className="flex gap-3">
+                  <button onClick={prev} className="flex-1 py-3 border border-gold/30 text-amber-100 rounded-lg hover:bg-gold/10 transition-all font-ui uppercase tracking-wider text-sm">Back</button>
+                  <button onClick={() => onComplete(data)} className="flex-1 py-3 bg-gold/20 hover:bg-gold/30 border border-gold/50 text-amber-100 rounded-lg transition-all font-ui uppercase tracking-wider text-sm">Enter the Realm</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    // --- GREAT HALL ---
+    function GreatHall({ profile, emotionalWeather, onEnterChamber, onEnterMirror, onJournal }) {
+      const [show, setShow] = useState(false);
+      useEffect(() => { setTimeout(() => setShow(true), 300); }, []);
+      
+      const mirrorClass = {
+        calm: 'mirror-gold',
+        turbulent: 'mirror-indigo',
+        curious: 'mirror-silver',
+        breakthrough: 'mirror-breakthrough',
+        heavy: 'mirror-indigo',
+        light: 'mirror-gold'
+      }[emotionalWeather] || 'mirror-gold';
+      
+      return (
+        <div className="relative w-full min-h-screen bg-black overflow-hidden">
+          <Starfield />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/80" />
+          
+          <div className="relative z-10 flex flex-col items-center min-h-screen py-8 md:py-12 px-4">
+            <div className="text-center mb-8 md:mb-12">
+              <h2 className="text-3xl md:text-4xl font-serif text-amber-100 mb-2">The Great Hall of Mirrors</h2>
+              <p className="text-amber-200/60 font-body italic">Choose a doorway, or speak to the Central Mirror</p>
+            </div>
+            
+            {/* Central Mirror */}
+            <div className={`mb-10 md:mb-14 transition-all duration-1000 ${show ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
+              <div className="relative w-48 h-72 md:w-64 md:h-96 mx-auto">
+                <div className={`absolute inset-0 rounded-lg border-4 backdrop-blur-sm glow-pulse ${mirrorClass}`}>
+                  <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-3xl">✦</div>
+                </div>
+                <div className="absolute inset-3 rounded-md overflow-hidden bg-black/20 backdrop-blur-md flex items-center justify-center p-4">
+                  <div className="text-center">
+                    <p className="text-amber-100/80 font-body italic text-sm md:text-base leading-relaxed">
+                      {profile.burningQuestion ? `"${profile.burningQuestion}"` : "The mirror awaits your truth."}
+                    </p>
+                    <button onClick={onEnterMirror} className="mt-4 px-4 py-2 border border-white/30 text-white/80 rounded-full text-xs uppercase tracking-widest hover:bg-white/10 transition-all">
+                      Convene the Council
+                    </button>
+                  </div>
+                  {emotionalWeather === 'breakthrough' && (
+                    <div className="absolute inset-0 pointer-events-none">
+                      {Array.from({length:15}).map((_,i) => (
+                        <div key={i} className="particle" style={{
+                          width: Math.random()*4+2+'px', height: Math.random()*4+2+'px',
+                          left: Math.random()*100+'%', top: Math.random()*100+'%',
+                          animation: `float ${3+Math.random()*4}s infinite ease-in-out`
+                        }} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Six Doorways */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 max-w-4xl w-full">
+              {Object.entries(GUIDES).map(([id, guide], idx) => (
+                <button key={id} onClick={() => onEnterChamber(id)} 
+                  className={`doorway-glow relative group rounded-xl border border-white/10 p-4 md:p-6 text-left transition-all duration-700 ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+                  style={{transitionDelay: `${idx * 100}ms`, background: `linear-gradient(135deg, rgba(0,0,0,0.6), ${id === 'stoic' ? 'rgba(212,175,55,0.1)' : id === 'nurturing' ? 'rgba(244,63,94,0.1)' : id === 'coach' ? 'rgba(249,115,22,0.1)' : id === 'astrologer' ? 'rgba(99,102,241,0.1)' : id === 'alchemist' ? 'rgba(180,83,9,0.1)' : 'rgba(16,185,129,0.1)'})`}}>
+                  <div className="text-2xl md:text-3xl mb-2">{guide.symbol}</div>
+                  <div className="text-amber-100 font-serif text-sm md:text-lg mb-1">{guide.name}</div>
+                  <div className="text-amber-200/50 text-xs font-body italic">{guide.chamber}</div>
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              ))}
+            </div>
+            
+            <button onClick={onJournal} className="mt-8 md:mt-12 px-6 py-2 border border-gold/30 text-gold/80 rounded-full text-xs uppercase tracking-widest hover:bg-gold/10 transition-all">
+              Open Soul Journal
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    // --- CHAMBER ---
+    function Chamber({ guideId, profile, onBack, onCrisis, onSaveToJournal }) {
+      const guide = GUIDES[guideId];
+      const [messages, setMessages] = useState([]);
+      const [input, setInput] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [typingText, setTypingText] = useState('');
+      const bottomRef = useRef(null);
+      
+      const chamberClass = `chamber-${guideId}`;
+      
+      useEffect(() => {
+        const greeting = `Welcome, seeker. I am the ${guide.name}. ${guideId === 'stoic' ? 'Sit beside the pool. Let us look clearly at what is.' : guideId === 'nurturing' ? 'Come closer to the fire. You are safe here.' : guideId === 'coach' ? 'Step into the forge. We have work to do.' : guideId === 'astrologer' ? 'Look up. The stars have been waiting to speak with you.' : guideId === 'alchemist' ? 'Descend with me. The gold is hidden in the darkness.' : 'The roses are blooming. Sit with me in the twilight.'}`;
+        typeMessage(greeting);
+        setMessages([{role:'guide', content:greeting}]);
+      }, []);
+      
+      useEffect(() => { bottomRef.current?.scrollIntoView({behavior:'smooth'}); }, [messages, typingText]);
+      
+      const typeMessage = (text) => {
+        setTypingText('');
+        let i = 0;
+        const interval = setInterval(() => {
+          i++;
+          setTypingText(text.slice(0, i));
+          if (i >= text.length) clearInterval(interval);
+        }, 20);
+        return () => clearInterval(interval);
+      };
+      
+      const handleSend = () => {
+        if (!input.trim() || loading) return;
+        const userMsg = input.trim();
+        setMessages(prev => [...prev, {role:'seeker', content:userMsg}]);
+        setInput('');
+        
+        if (checkCrisis(userMsg)) {
+          onCrisis();
+          return;
+        }
+        
+        setLoading(true);
+        setTimeout(() => {
+          let resp;
+          if (guideId === 'stoic') resp = generateStoicResponse(userMsg, profile);
+          else if (guideId === 'nurturing') resp = generateNurturingResponse(userMsg, profile);
+          else if (guideId === 'coach') resp = generateCoachResponse(userMsg, profile);
+          else if (guideId === 'astrologer') resp = generateAstrologerResponse(userMsg, profile);
+          else if (guideId === 'alchemist') resp = generateAlchemistResponse(userMsg, profile);
+          else resp = generatePoetResponse(userMsg, profile);
+          
+          const content = resp.content;
+          setMessages(prev => [...prev, {role:'guide', content, metadata: resp}]);
+          setLoading(false);
+          onSaveToJournal({ guideId, guideName: guide.name, query: userMsg, response: content, emotionalWeather: 'calm', entryType: 'reflection' });
+          typeMessage(content);
+        }, 1200);
+      };
+      
+      return (
+        <div className={`relative w-full min-h-screen ${chamberClass} overflow-hidden flex flex-col`}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative z-10 flex flex-col h-screen">
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-white/10 bg-black/20 backdrop-blur-md">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{guide.symbol}</span>
+                <div>
+                  <div className="text-amber-100 font-serif">{guide.name}</div>
+                  <div className="text-amber-200/50 text-xs font-body italic">{guide.chamber}</div>
+                </div>
+              </div>
+              <button onClick={onBack} className="text-amber-200/70 hover:text-amber-100 text-sm uppercase tracking-widest">Return to Hall</button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-hide">
+              <div className="max-w-3xl mx-auto space-y-6">
+                {messages.map((m, i) => (
+                  <div key={i} className={`flex ${m.role === 'seeker' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[85%] md:max-w-[75%] rounded-xl p-4 md:p-5 ${m.role === 'seeker' ? 'bg-white/10 text-amber-50 border border-white/10' : 'bg-black/40 border border-gold/30 text-amber-100'}`}>
+                      <div className="text-xs uppercase tracking-widest mb-2 opacity-60 font-ui">{m.role === 'seeker' ? 'You' : guide.name}</div>
+                      <div className="font-body whitespace-pre-wrap leading-relaxed">{m.content}</div>
+                    </div>
+                  </div>
+                ))}
+                {loading && (
+                  <div className="flex justify-start">
+                    <div className="bg-black/40 border border-gold/30 rounded-xl p-4 text-amber-100">
+                      <div className="flex gap-2">
+                        <span className="w-2 h-2 bg-gold/60 rounded-full animate-bounce" />
+                        <span className="w-2 h-2 bg-gold/60 rounded-full animate-bounce" style={{animationDelay:'0.2s'}} />
+                        <span className="w-2 h-2 bg-gold/60 rounded-full animate-bounce" style={{animationDelay:'0.4s'}} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {!loading && typingText && messages.length > 0 && messages[messages.length-1].role === 'guide' && typingText !== messages[messages.length-1].content && (
+                  <div className="flex justify-start">
+                    <div className="bg-black/40 border border-gold/30 rounded-xl p-4 text-amber-100 font-body whitespace-pre-wrap leading-relaxed">
+                      {typingText}<span className="typing-cursor" />
+                    </div>
+                  </div>
+                )}
+                <div ref={bottomRef} />
+              </div>
+            </div>
+            
+            <div className="p-4 md:p-6 border-t border-white/10 bg-black/30 backdrop-blur-md">
+              <div className="max-w-3xl mx-auto flex gap-3">
+                <input 
+                  type="text" 
+                  value={input} 
+                  onChange={e => setInput(e.target.value)} 
+                  onKeyDown={e => e.key === 'Enter' && handleSend()}
+                  placeholder="Speak your truth..." 
+                  className="flex-1 bg-black/40 border border-gold/30 rounded-lg px-4 py-3 text-amber-100 placeholder-amber-200/30 focus:outline-none focus:border-gold/60 font-body"
+                />
+                <button onClick={handleSend} className="px-6 py-3 bg-gold/20 border border-gold/50 text-amber-100 rounded-lg hover:bg-gold/30 transition-all font-ui uppercase tracking-wider text-sm">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // --- MIRROR COUNCIL ---
+    function MirrorCouncil({ profile, onBack, onCrisis, onSaveToJournal }) {
+      const [messages, setMessages] = useState([]);
+      const [input, setInput] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [stage, setStage] = useState('input'); // input, synthesizing, complete
+      
+      const handleSend = () => {
+        if (!input.trim() || loading) return;
+        const userMsg = input.trim();
+        setMessages([{role:'seeker', content:userMsg}]);
+        setInput('');
+        setStage('synthesizing');
+        
+        if (checkCrisis(userMsg)) {
+          onCrisis();
+          return;
+        }
+        
+        setLoading(true);
+        setTimeout(() => {
+          // Simulate all 6 guides responding
+          const responses = {
+            stoic: generateStoicResponse(userMsg, profile),
+            nurturing: generateNurturingResponse(userMsg, profile),
+            coach: generateCoachResponse(userMsg, profile),
+            astrologer: generateAstrologerResponse(userMsg, profile),
+            alchemist: generateAlchemistResponse(userMsg, profile),
+            poet: generatePoetResponse(userMsg, profile)
+          };
+          
+          const synthesis = generateSynthesis(responses);
+          const fullContent = synthesis.content;
+          
+          setMessages(prev => [...prev, {role:'synthesis', content: fullContent, metadata: synthesis}]);
+          setLoading(false);
+          setStage('complete');
+          onSaveToJournal({ guideId: 'council', guideName: 'The Great Mirror', query: userMsg, response: fullContent, emotionalWeather: 'breakthrough', entryType: 'reflection' });
+        }, 3000);
+      };
+      
+      return (
+        <div className="relative w-full min-h-screen bg-black overflow-hidden flex flex-col">
+          <Starfield />
+          <div className="absolute inset-0 bg-indigo-950/30" />
+          <div className="relative z-10 flex flex-col h-screen">
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-white/10 bg-black/40 backdrop-blur-md">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🪞</span>
+                <div>
+                  <div className="text-amber-100 font-serif">The Great Mirror</div>
+                  <div className="text-amber-200/50 text-xs font-body italic">Council of Six</div>
+                </div>
+              </div>
+              <button onClick={onBack} className="text-amber-200/70 hover:text-amber-100 text-sm uppercase tracking-widest">Return to Hall</button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-hide">
+              <div className="max-w-3xl mx-auto space-y-6">
+                {messages.length === 0 && (
+                  <div className="text-center py-20">
+                    <div className="w-32 h-48 mx-auto border-4 border-gold/40 rounded-lg bg-gradient-to-b from-gold/20 to-indigo-900/20 backdrop-blur-sm mb-6 flex items-center justify-center">
+                      <span className="text-4xl">✦</span>
+                    </div>
+                    <p className="text-amber-100/60 font-body italic text-lg">Stand before the mirror and speak your question.</p>
+                    <p className="text-amber-200/40 text-sm mt-2">The Council will convene from all six chambers.</p>
+                  </div>
+                )}
+                {messages.map((m, i) => (
+                  <div key={i} className={`flex ${m.role === 'seeker' ? 'justify-end' : 'justify-center'}`}>
+                    <div className={`max-w-[90%] md:max-w-[80%] rounded-xl p-5 md:p-6 ${m.role === 'seeker' ? 'bg-white/10 text-amber-50 border border-white/10' : 'bg-black/50 border border-gold/40 text-amber-100 mirror-gold'}`}>
+                      <div className="text-xs uppercase tracking-widest mb-3 opacity-60 font-ui text-center">{m.role === 'seeker' ? 'Your Question' : 'The Council Speaks'}</div>
+                      <div className="font-body whitespace-pre-wrap leading-relaxed text-sm md:text-base">{m.content}</div>
+                    </div>
+                  </div>
+                ))}
+                {loading && stage === 'synthesizing' && (
+                  <div className="text-center py-10">
+                    <div className="flex justify-center gap-2 mb-4">
+                      {Object.values(GUIDES).map((g,i) => (
+                        <div key={i} className="text-2xl animate-pulse" style={{animationDelay: `${i*0.2}s`}}>{g.symbol}</div>
+                      ))}
+                    </div>
+                    <p className="text-amber-200/60 font-body italic">The Council convenes beyond time...</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="p-4 md:p-6 border-t border-white/10 bg-black/40 backdrop-blur-md">
+              <div className="max-w-3xl mx-auto flex gap-3">
+                <input 
+                  type="text" 
+                  value={input} 
+                  onChange={e => setInput(e.target.value)} 
+                  onKeyDown={e => e.key === 'Enter' && handleSend()}
+                  disabled={stage !== 'input'}
+                  placeholder={stage === 'complete' ? "The Council has spoken. Return to the Hall." : "Speak your question to the Council..."} 
+                  className="flex-1 bg-black/40 border border-gold/30 rounded-lg px-4 py-3 text-amber-100 placeholder-amber-200/30 focus:outline-none focus:border-gold/60 font-body disabled:opacity-50"
+                />
+                <button onClick={handleSend} disabled={stage !== 'input'} className="px-6 py-3 bg-gold/20 border border-gold/50 text-amber-100 rounded-lg hover:bg-gold/30 transition-all font-ui uppercase tracking-wider text-sm disabled:opacity-50">Convene</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // --- SAFE HARBOR ---
+    function SafeHarbor({ onResolve, profile }) {
+      return (
+        <div className="relative w-full min-h-screen crisis-blue overflow-hidden flex items-center justify-center">
+          <div className="absolute inset-0 bg-blue-950/40" />
+          <div className="relative z-10 max-w-2xl mx-auto px-6 py-12 text-center">
+            <div className="w-20 h-20 mx-auto mb-8 rounded-full border-2 border-blue-300/30 flex items-center justify-center bg-blue-900/30 backdrop-blur-md">
+              <span className="text-4xl">🌊</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-serif text-blue-100 mb-6">Safe Harbor</h2>
+            <div className="bg-blue-900/30 border border-blue-400/30 rounded-xl p-6 md:p-8 text-left space-y-4 font-body text-blue-100/90 leading-relaxed">
+              <p>I hear you. And I want you to know: you are not alone right now. What you're carrying is heavy, and you deserve support that goes beyond what I can offer in this space.</p>
+              <p className="font-ui text-sm uppercase tracking-wider text-blue-200/80 mt-6 mb-2">If you are in immediate danger:</p>
+              <div className="space-y-2 text-sm">
+                <p>• <strong>United States:</strong> Call or text <span className="text-blue-200 font-bold">988</span> (Suicide & Crisis Lifeline)</p>
+                <p>• <strong>United Kingdom:</strong> Call 111 or text SHOUT to 85258</p>
+                <p>• <strong>Canada:</strong> Call or text 988</p>
+                <p>• <strong>Australia:</strong> Call 13 11 14 (Lifeline)</p>
+                <p>• <strong>International:</strong> <a href="https://findahelpline.com" target="_blank" className="text-blue-300 underline">findahelpline.com</a></p>
+              </div>
+              <p className="mt-6 italic text-blue-200/70">These are real people, right now, who can help. You deserve that help.</p>
+              <p>I'm here with you in this moment. Take a breath with me. In... and out. You've survived every difficult moment up until now. You can survive this one too. One breath at a time.</p>
+            </div>
+            <button onClick={onResolve} className="mt-8 px-8 py-3 border border-blue-300/50 text-blue-100 hover:bg-blue-400/10 transition-all rounded-full tracking-widest uppercase text-sm font-ui">Return to the Hall</button>
+          </div>
+        </div>
+      );
+    }
+    
+    // --- SOUL JOURNAL ---
+    function SoulJournal({ entries, onClose, profile }) {
+      const [filter, setFilter] = useState('all');
+      const filtered = filter === 'all' ? entries : entries.filter(e => e.entryType === filter || e.guideId === filter);
+      
+      return (
+        <div className="relative w-full min-h-screen bg-obsidian overflow-auto">
+          <div className="relative z-10 max-w-4xl mx-auto px-4 py-8 md:py-12">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-3xl md:text-4xl font-serif text-amber-100">Soul Journal</h2>
+              <button onClick={onClose} className="text-amber-200/70 hover:text-amber-100 text-sm uppercase tracking-widest">Close</button>
+            </div>
+            
+            <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+              {['all', 'reflection', 'stoic', 'nurturing', 'coach', 'astrologer', 'alchemist', 'poet', 'council'].map(f => (
+                <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2 rounded-full text-xs uppercase tracking-wider border whitespace-nowrap ${filter === f ? 'border-gold bg-gold/20 text-amber-100' : 'border-white/10 text-amber-200/50 hover:border-white/30'}`}>
+                  {f === 'all' ? 'All Entries' : GUIDES[f]?.name || 'Council'}
+                </button>
+              ))}
+            </div>
+            
+            <div className="space-y-4">
+              {filtered.length === 0 && (
+                <div className="text-center py-20 text-amber-200/40 font-body italic">The pages are blank, awaiting your story.</div>
+              )}
+              {filtered.map(entry => (
+                <div key={entry.id} className="journal-page rounded-xl p-6 shadow-lg border border-white/5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{GUIDES[entry.guideId]?.symbol || '🪞'}</span>
+                      <span className="font-serif text-amber-900 font-semibold">{entry.guideName || 'Unknown Guide'}</span>
+                    </div>
+                    <span className="text-xs text-stone-500 font-ui">{new Date(entry.date).toLocaleDateString()} • {new Date(entry.date).toLocaleTimeString()}</span>
+                  </div>
+                  <div className="text-sm text-stone-600 font-ui uppercase tracking-wider mb-2">Seeker's Question:</div>
+                  <div className="font-body italic text-stone-800 mb-4 pl-3 border-l-2 border-stone-300">{entry.query}</div>
+                  <div className="text-sm text-stone-600 font-ui uppercase tracking-wider mb-2">Reflection:</div>
+                  <div className="font-body text-stone-800 whitespace-pre-wrap leading-relaxed">{entry.response}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
